@@ -45,7 +45,7 @@ bool tryReadDeviceSignature(DeviceSignature& out_sign);
 
 inline unsigned getFlashSize()
 {
-    return /*(uint16_t)1024 * */((unsigned)reinterpret_cast<std::uint16_t*>(0x1FFFF7E0));
+    return 1024 * *reinterpret_cast<std::uint16_t*>(0x1FFFF7E0);
 }
 
 }

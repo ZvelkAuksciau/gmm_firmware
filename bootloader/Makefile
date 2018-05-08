@@ -4,11 +4,11 @@
 #
 
 APPLICATION_OFFSET = 32512
-PRODUCT_NAME_STRING = 0
-BL_VERSION_MAJOR = 0
+PRODUCT_NAME_STRING = \"KMTI\ gimbal\ motor\"
+BL_VERSION_MAJOR = 1
 BL_VERSION_MINOR = 0
-GIT_HASH = 0
-HW_VERSION_MAJOR = 0
+GIT_HASH = $(shell git rev-parse --short HEAD)
+HW_VERSION_MAJOR = 1
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
@@ -93,7 +93,7 @@ endif
 #
 
 # Define project name here
-PROJECT = gcm_firmware
+PROJECT = gmm_bootloader
 
 # Imported source files and paths
 CHIBIOS = modules/ChibiOS
@@ -143,7 +143,7 @@ UDEFS += -DBL_VERSION_MINOR=$(BL_VERSION_MINOR)
 UDEFS += -DGIT_HASH=$(GIT_HASH)
 UDEFS += -DHW_VERSION_MAJOR=$(HW_VERSION_MAJOR)
 UDEFS += -DDEBUG_BUILD
-
+UDEFS += -DHAL_BRD_VERSION=1
 #CSRC += $(UAVCAN)/canard.c
 
 # Invoke DSDL compiler and add its default output directory to the include search path

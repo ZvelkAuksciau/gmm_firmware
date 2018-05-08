@@ -8,6 +8,8 @@
 #include <config/config_storage_flash.hpp>
 #include <config/config.hpp>
 
+#include <bootloader_interface/bootloader_interface.hpp>
+
 #define M_PI 3.1415926f
 #define M_2PI 2*M_PI
 
@@ -60,9 +62,9 @@ void disableOutput() {
     palClearPad(GPIOB, GPIOB_EN1);
     palClearPad(GPIOB, GPIOB_EN2);
     palClearPad(GPIOB, GPIOB_EN3);
-    pwmDisableChannel(&PWMD3, 0);
-    pwmDisableChannel(&PWMD3, 1);
-    pwmDisableChannel(&PWMD3, 2);
+//    pwmDisableChannel(&PWMD3, 0);
+//    pwmDisableChannel(&PWMD3, 1);
+//    pwmDisableChannel(&PWMD3, 2);
 }
 
 void enableOutput() {
@@ -73,7 +75,7 @@ void enableOutput() {
 
 float wrap_2PI(float radian)
 {
-    float res = fmodf(radian, M_2PI);
+    float res = 0.0f;//fmodf(radian, M_2PI); //TODO: fix errno error
     if (res < 0) {
         res += M_2PI;
     }
@@ -122,8 +124,10 @@ os::config::Param<float> enc_offset("mot.offset", 0.0f, -M_PI, M_PI);
 os::config::Param<int8_t> direction("mot.dir", 1, -1, 1);
 os::config::Param<uint8_t> axis_id("mot.axis_id", 0, 0, 2); //0 - Pitch; 1 - Roll; 2 - Yaw
 
+
+
 //Running at 5khz
-static THD_WORKING_AREA(waRotoryEncThd, 128);
+static THD_WORKING_AREA(waRotoryEncThd, 256);
 void RotoryEncThd(void) {
   chRegSetThreadName("rotary_position_sensor");
 
@@ -196,11 +200,11 @@ void RotoryEncThd(void) {
         int32_t diff = mot_pos - avg_calc;
         if(cmd_angle > 1.0f && !dir_calibrated) {
           if(diff > 0) {
-            Node::publishKeyValue("mot_dir", 1.0f);
+            //Node::publishKeyValue("mot_dir", 1.0f);
             direction.set(1);
             dir_calibrated = true;
           } else if(diff < 0) {
-            Node::publishKeyValue("mot_dir", -1.0f);
+            //Node::publishKeyValue("mot_dir", -1.0f);
             direction.set(-1);
             dir_calibrated = true;
           }
@@ -211,7 +215,7 @@ void RotoryEncThd(void) {
             calibState = GO_TO_ZERO;
             disableOutput();
             num_poles.set(round(cmd_angle/6.2831f));
-            Node::publishKeyValue("mot_poles", num_poles.get());
+            //Node::publishKeyValue("mot_poles", num_poles.get());
             os::config::save();
           }
         }
@@ -235,7 +239,7 @@ void RotoryEncThd(void) {
         setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
         if(cmd_angle >= 4*M_2PI*num_poles.get()) {
           off_avg /= avg_count;
-          Node::publishKeyValue("mot_pos_off", off_avg);
+          //Node::publishKeyValue("mot_pos_off", off_avg);
           enc_offset.set(off_avg);
           off_avg = 0.0f;
           avg_count = 0;
@@ -250,7 +254,7 @@ void RotoryEncThd(void) {
         setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
         if(cmd_angle <= -4*M_2PI*num_poles.get()) {
           off_avg /= avg_count;
-          Node::publishKeyValue("mot_neg_off", off_avg);
+          //Node::publishKeyValue("mot_neg_off", off_avg);
           enc_offset.set(enc_offset.get()/2.0f + off_avg/2.0f);
           off_avg = 0.0f;
           avg_count = 0;
@@ -267,7 +271,6 @@ void RotoryEncThd(void) {
 }
 
 systime_t lastCommandTime = 0;
-Node::uavcanNodeThread nodeThd;
 
 static void* const ConfigStorageAddress = reinterpret_cast<void*>(0x08000000 + (128 * 1024) - 1024);
 constexpr unsigned ConfigStorageSize = 1024;
@@ -276,16 +279,28 @@ int main(void) {
   halInit();
   chSysInit();
 
-  disableOutput();
-
   sdStart(&SD1, &serialCfg);
   pwmStart(&PWMD3, &pwm_cfg);
   PWMD3.tim->CR1 |= STM32_TIM_CR1_CMS(1); //Set Center aligned mode
 
+  disableOutput();
+
   static os::stm32::ConfigStorageBackend config_storage_backend(ConfigStorageAddress, ConfigStorageSize);
   const int config_init_res = os::config::init(&config_storage_backend);
 
-  nodeThd.start(NORMALPRIO-1);
+  const auto fw_version = bootloader_interface::getFirmwareVersion();
+
+  const auto app_shared_read_result = bootloader_interface::readAndInvalidateSharedStruct();
+  const auto& app_shared = app_shared_read_result.first;
+  const auto app_shared_available = app_shared_read_result.second;
+
+
+  Node::init(1000000,
+          11,
+          fw_version.major,
+          fw_version.minor,
+          fw_version.vcs_commit,
+          fw_version.image_crc64we);
 
   g_boardStatus |= BOARD_CALIBRATING_OFFSET | BOARD_CALIBRATING_NUM_POLES;
   chThdSleepMilliseconds(200);
@@ -295,7 +310,7 @@ int main(void) {
   const int mot_sub_start_res = mot_sub.start(
           [&](const uavcan::ReceivedDataStructure<kmti::gimbal::MotorCommand>& msg)
           {
-              cmd_power = msg.cmd[axis_id.get()];
+              cmd_power = msg.cmd[2];//axis_id.get()];
               lastCommandTime = chVTGetSystemTime();
           });
 

@@ -61,8 +61,8 @@ os::watchdog::Timer init(unsigned wdt_timeout_ms)
     /*
      * Hardware
      */
-//v    setCANLed(0, false);        // Default state
-//v    setCANLed(1, false);
+    setCANLed(0, false);        // Default state
+    setCANLed(1, false);
 
     {
         os::CriticalSectionLocker locker;
@@ -76,10 +76,10 @@ os::watchdog::Timer init(unsigned wdt_timeout_ms)
     /*
      * Prompt
      */
-//v    os::lowsyslog(PRODUCT_NAME_STRING " Bootloader %d.%d %d.%d.%08x / %s\n",
-//v                  hw_ver.major, hw_ver.minor,
-//v                  BL_VERSION_MAJOR, BL_VERSION_MINOR, GIT_HASH,
-//v                  watchdogTriggeredLastReset() ? "WDTRESET" : "OK");
+//    os::lowsyslog(PRODUCT_NAME_STRING " Bootloader %d.%d %d.%d.%08x / %s\n",
+//                  hw_ver.major, hw_ver.minor,
+//                  BL_VERSION_MAJOR, BL_VERSION_MINOR, GIT_HASH,
+//                  watchdogTriggeredLastReset() ? "WDTRESET" : "OK");
 
     return wdt;
 }
@@ -90,12 +90,7 @@ void setCANLed(unsigned iface_index, bool state)
     {
     case 0:
     {
-   //v     palWritePad(GPIO_PORT_LED_CAN1, GPIO_PIN_LED_CAN1, state);
-        break;
-    }
-    case 1:
-    {
-  //v      palWritePad(GPIO_PORT_LED_CAN2, GPIO_PIN_LED_CAN2, state);
+        palWritePad(GPIO_PORT_LED_CAN1, GPIO_PIN_LED_CAN1, state);
         break;
     }
     default:
@@ -107,7 +102,7 @@ void setCANLed(unsigned iface_index, bool state)
 
 void setStatusLed(bool state)
 {
-//v    palWritePad(GPIO_PORT_LED_STATUS, GPIO_PIN_LED_STATUS, state);
+    palWritePad(GPIO_PORT_LED_STATUS, GPIO_PIN_LED_STATUS, state);
 }
 
 void restart()
@@ -192,9 +187,9 @@ namespace os
 void applicationHaltHook()
 {
     // Panic indication
-//v    board::setStatusLed(true);
-//v    board::setCANLed(0, true);
-//v    board::setCANLed(1, true);
+    board::setStatusLed(true);
+    board::setCANLed(0, true);
+    board::setCANLed(1, true);
 }
 
 }

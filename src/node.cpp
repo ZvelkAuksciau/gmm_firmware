@@ -1,20 +1,22 @@
 #include <node.hpp>
 #include <uavcan/uavcan.hpp>
 #include <uavcan_stm32/uavcan_stm32.hpp>
-#include <uavcan/protocol/debug/KeyValue.hpp>
+//#include <uavcan/protocol/debug/KeyValue.hpp>
 
 #include <uavcan/protocol/param_server.hpp>
-#include <uavcan/protocol/restart_request_server.hpp>
 #include <config/config.hpp>
 
 #include <ch.hpp>
+#include "hardware.hpp"
 
 namespace Node {
 
-  os::config::Param<uint8_t> node_id("node.id", 1, 1, 127); //0 - automatic detection (not supported)
+  os::config::Param<uint8_t> node_id("node.id", 1, 0, 127); //0 - automatic detection (not supported)
   os::config::Param<uint32_t> bus_speed("node.speed", 1000000, 125000, 1000000);
 
   uavcan_stm32::CanInitHelper<> can;
+
+  uavcan::protocol::SoftwareVersion firmware_version;
 
   uavcan::Node<NodePoolSize>& getNode() {
     static uavcan::Node<NodePoolSize> node(can.driver, uavcan_stm32::SystemClock::instance());
@@ -129,23 +131,23 @@ namespace Node {
       }
   } param_manager;
 
-  class RestartRequestHandler: public uavcan::IRestartRequestHandler {
-    bool handleRestartRequest(uavcan::NodeID request_source) override
-    {
-      (void) request_source;
-      NVIC_SystemReset();
-      return true;
-    }
-  } restart_request_handler;
+//  class RestartRequestHandler: public uavcan::IRestartRequestHandler {
+//    bool handleRestartRequest(uavcan::NodeID request_source) override
+//    {
+//      (void) request_source;
+//      NVIC_SystemReset();
+//      return true;
+//    }
+//  } restart_request_handler;
 
-  static uavcan::Publisher<uavcan::protocol::debug::KeyValue> kv_pub(getNode());
+//  static uavcan::Publisher<uavcan::protocol::debug::KeyValue> kv_pub(getNode());
 
-  void publishKeyValue(const char *key, float value) {
-      uavcan::protocol::debug::KeyValue kv_msg;
-      kv_msg.key = key;
-      kv_msg.value = value;
-      kv_pub.broadcast(kv_msg);
-  }
+//  void publishKeyValue(const char *key, float value) {
+//      uavcan::protocol::debug::KeyValue kv_msg;
+//      kv_msg.key = key;
+//      kv_msg.value = value;
+//      kv_pub.broadcast(kv_msg);
+//  }
 
   void uavcanNodeThread::main() {
     can.init(bus_speed.get());
@@ -155,12 +157,22 @@ namespace Node {
         getNode().setNodeID(node_id.get());
     }
 
+    getNode().setSoftwareVersion(firmware_version);
+
+    uavcan::protocol::HardwareVersion hw_ver;
+
+    hw_ver.major = HAL_BRD_VERSION;
+    hw_ver.minor = 0;
+
+    UUID uuid = readUniqueID();
+    memcpy(&hw_ver.unique_id, &uuid, sizeof(uuid));
+
+    getNode().setHardwareVersion(hw_ver);
+
     if (getNode().start() < 0) {
       chSysHalt("UAVCAN init fail");
     }
-    kv_pub.init();
-
-    getNode().setRestartRequestHandler(&restart_request_handler);
+//    kv_pub.init();
 
     uavcan::ParamServer server(getNode());
     server.start(&param_manager);
@@ -173,6 +185,25 @@ namespace Node {
       }
         //kv_pub.broadcast(kv_msg);
     }
+  }
+
+  uavcanNodeThread node_thread;
+
+  void init(uint32_t bit_rate,
+            uint8_t node_id,
+            uint8_t firmware_vers_major,
+            uint8_t firmware_vers_minor,
+            uint32_t vcs_commit,
+            uint64_t crc64) {
+      firmware_version.major = firmware_vers_major;
+      firmware_version.minor = firmware_vers_minor;
+      firmware_version.vcs_commit = vcs_commit;
+      firmware_version.image_crc = crc64;
+      firmware_version.optional_field_flags =
+              firmware_version.OPTIONAL_FIELD_FLAG_IMAGE_CRC | firmware_version.OPTIONAL_FIELD_FLAG_VCS_COMMIT;
+
+      node_thread.start(NORMALPRIO);
+
   }
 
 }

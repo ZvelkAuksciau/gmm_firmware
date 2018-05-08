@@ -6,7 +6,7 @@
 # Compiler options here.
 ifeq ($(USE_OPT),)
   USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
- # USE_OPT += -nodefaultlibs
+  USE_OPT += -nodefaultlibs -lc -lgcc -lm
 endif
 
 # C specific options here (added to USE_OPT).
@@ -53,7 +53,7 @@ endif
 #
 # Build global options
 ##############################################################################
-USE_CPPOPT += -std=c++11 -fno-rtti -fno-exceptions -fno-threadsafe-statics
+USE_CPPOPT += -std=c++14 -fno-rtti -fno-exceptions -fno-threadsafe-statics
 USE_COPT += -std=c99
 
 ##############################################################################
@@ -86,7 +86,7 @@ endif
 #
 
 # Define project name here
-PROJECT = gcm_firmware
+PROJECT = gmm_firmware
 
 # Imported source files and paths
 CHIBIOS = modules/ChibiOS
@@ -114,18 +114,37 @@ CSRC = $(STARTUPSRC) \
        $(HALSRC) \
        $(PLATFORMSRC) \
        $(CHIBIOS)/os/various/syscalls.c \
-       board/board.c
+       board/board.c \
+       src/exceptionvectors.c
+
+ifeq ($(HAL_VERSION),)
+	HAL_VERSION = 1
+endif
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CPPSRC += $(CHCPPSRC)
 CPPSRC += $(shell find src -type f -name '*.cpp')
+
+HW_VERSION_MAJOR = HAL_VERSION
+FW_VERSION_MAJOR = 1
+FW_VERSION_MINOR = 0
+GIT_HASH = $(shell git rev-parse --short HEAD)
+
+BOOTLOADER_SIZE = 32768
+DDEFS += -DCORTEX_VTOR_INIT=$(BOOTLOADER_SIZE)            \
+         -DCRT1_AREAS_NUMBER=0
 		 
 UDEFS += -DUAVCAN_STM32_CHIBIOS=1 \
 		 -DUAVCAN_STM32_TIMER_NUMBER=2 \
 		 -DUAVCAN_STM32_NUM_IFACES=1 \
 		 -DUAVCAN_CPP_VERSION=UAVCAN_CPP11 \
-		 -DUAVCAN_TINY=0
+		 -DUAVCAN_TINY=1 \
+		 -DHAL_BRD_VERSION=$(HAL_VERSION) \
+		 -DGIT_HASH=0x$(GIT_HASH) \
+		 -DFW_VERSION_MAJOR=$(FW_VERSION_MAJOR) \
+		 -DFW_VERSION_MINOR=$(FW_VERSION_MINOR) \
+		 -DRELEASE_BUILD=1
 		 
 include $(UAVCAN)/libuavcan/include.mk
 CPPSRC += $(LIBUAVCAN_SRC)
@@ -235,4 +254,34 @@ ULIBS =
 
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
+
+HW_VERSION_MAJOR_MINOR := $(HAL_VERSION).0
+FW_VERSION_MAJOR_MINOR_VCS_HASH := $(FW_VERSION_MAJOR).$(FW_VERSION_MINOR).$(GIT_HASH)
+COMPOUND_IMAGE_FILE := $(PROJECT)-$(HW_VERSION_MAJOR_MINOR)-$(FW_VERSION_MAJOR_MINOR_VCS_HASH).compound.bin
+
+BOOTLOADER_IMAGE := ../bootloader/build/gmm_bootloader.bin
+
+.PHONY: binaries
+binaries:
+	# Removing previous build outputs that could use a different git hash
+	rm -rf build/*.application.bin build/*.compound.bin
+
+	# Generating compound image with embedded bootloader
+	cd build && dd if=/dev/zero bs=$(BOOTLOADER_SIZE) count=1 | tr "\000" "\377" >padded_bootloader.tmp.bin
+	cd build && dd if=$(BOOTLOADER_IMAGE) of=padded_bootloader.tmp.bin conv=notrunc
+	cd build && cat padded_bootloader.tmp.bin $(PROJECT).bin >$(COMPOUND_IMAGE_FILE)
+
+	# Generating the signed image for the bootloader
+	cd build && python2 ../tools/make_boot_descriptor.py $(PROJECT).bin $(PROJECT) $(HW_VERSION_MAJOR_MINOR) \
+	                                                           --also-patch-descriptor-in=$(PROJECT).elf           \
+	                                                           --also-patch-descriptor-in=$(COMPOUND_IMAGE_FILE) -v
+
+	# Injecting the bootloader into the final ELF
+	cd build && $(CP) --add-section bootloader=$(BOOTLOADER_IMAGE)   \
+	                                        --set-section-flags bootloader=load,alloc      \
+	                                        --change-section-address bootloader=0x08000000 \
+	                                        $(PROJECT).elf compound.elf
+
+	# Removing temporary files
+	cd build && rm -f $(PROJECT).bin $(PROJECT).elf *.hex *.tmp.bin
 

@@ -96,7 +96,6 @@ void __throw_system_error(int) { chSysHalt("throw"); }
 void __throw_future_error(int) { chSysHalt("throw"); }
 
 void __throw_bad_function_call() { chSysHalt("throw"); }
-
 }
 
 namespace __gnu_cxx

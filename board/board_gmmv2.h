@@ -21,7 +21,7 @@
  * Board identifier.
  */
 //#define BOARD_OLIMEX_STM32_P103
-#define BOARD_NAME              "Gimbal_CTRL_Rev1"
+#define BOARD_NAME              "Gimbal_CTRL_Rev2"
 
 /*
  * Board frequencies.
@@ -37,24 +37,35 @@
 /*
  * IO pins assignments.
  */
-#define GPIOB_LED_RED 1
-#define GPIOB_LED_GREEN 2
+#define GPIO_LED_RED GPIOB
+#define LED_RED 6
+#define GPIO_LED_GREEN GPIOB
+#define LED_GREEN 7
+#define GPIO_SPI1NSS GPIOA
+#define SPI1NSS 8
 
-#define GPIO_PORT_LED_CAN1 GPIOB
-#define GPIO_PIN_LED_CAN1 GPIOB_LED_RED
+#define GPIO_IN1 GPIOA
+#define IO_IN1 6
+#define GPIO_IN2 GPIOA
+#define IO_IN2 7
+#define GPIO_IN3 GPIOB
+#define IO_IN3 0
 
-#define GPIO_PORT_LED_STATUS GPIOB
-#define GPIO_PIN_LED_STATUS GPIOB_LED_GREEN
+#define GPIO_EN1 GPIOA
+#define IO_EN1 0
+#define GPIO_EN2 GPIOA
+#define IO_EN2 1
+#define GPIO_EN3 GPIOA
+#define IO_EN3 2
 
-#define GPIOA_SPI1NSS 4
+#define GPIO_RESET GPIOA
+#define IO_RESET 3
+#define GPIO_SLEEP GPIOA
+#define IO_RESET 4
+#define GPIO_FAULT GPIOA
+#define IO_RESET 5
 
-#define GPIOB_IN1 4
-#define GPIOB_IN2 5
-#define GPIOB_IN3 0
-#define GPIOB_EN1 10
-#define GPIOB_EN2 11
-#define GPIOB_EN3 12
-#define GPIOC_RESET 14
+
 /*
  * I/O ports initial setup, this configuration is established soon after reset
  * in the initialization code.
@@ -98,6 +109,8 @@
  * Port B setup.
  * Everything input with pull-up except:
  * PB1 PB2  - Push Pull output     (LED).
+ * PB6 - Open drain alternative (I2C1_SCL) DO NOT USE. See errata
+ * PB7 - Open drain alternative (I2C1_SDA) DO NOT USE. See errata
  * PB0 PB4 PB5 - Alternate Push Pull output motor driver.
  * PB10 PB11 PB12 - Push Pull output motor driver.
  * PB10 - Alternate Push pull  (USART3_TX).
@@ -105,7 +118,7 @@
  */
 #define VAL_GPIOBCRL            0x88BB822B      /*  PB7...PB0 */
 #define VAL_GPIOBCRH            0x888222B8      /* PB15...PB8 */
-#define VAL_GPIOBODR            0xFFFFFFFF
+#define VAL_GPIOBODR            0xFFFF0CC0
 
 /*
  * Port C setup.
