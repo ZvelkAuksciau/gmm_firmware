@@ -9,6 +9,7 @@
 #include <config/config.hpp>
 
 #include <bootloader_interface/bootloader_interface.hpp>
+#include "os.hpp"
 
 #define M_PI 3.1415926f
 #define M_2PI 2*M_PI
@@ -279,6 +280,10 @@ int main(void) {
   halInit();
   chSysInit();
 
+  os::watchdog::init();
+  os::watchdog::Timer wdt;
+  wdt.startMSec(5000);
+
   sdStart(&SD1, &serialCfg);
   pwmStart(&PWMD3, &pwm_cfg);
   PWMD3.tim->CR1 |= STM32_TIM_CR1_CMS(1); //Set Center aligned mode
@@ -328,6 +333,7 @@ int main(void) {
           cmd_power = 0.0f;
       }
       chThdSleepMilliseconds(100);
+      wdt.reset();
   }
 }
 
