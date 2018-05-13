@@ -205,7 +205,7 @@ namespace Node {
     hw_ver.major = HAL_BRD_VERSION;
     hw_ver.minor = 0;
 
-    UUID uuid = readUniqueID();
+    Hardware::UUID uuid = Hardware::readUniqueID();
     memcpy(&hw_ver.unique_id, &uuid, sizeof(uuid));
 
     getNode().setHardwareVersion(hw_ver);

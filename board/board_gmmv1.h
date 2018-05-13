@@ -48,6 +48,42 @@
 #define GPIOB_EN2 11
 #define GPIOB_EN3 12
 #define GPIOC_RESET 14
+
+/*
+ * IO pins assignments.
+ */
+#define PORT_LED_RED GPIOB
+#define GPIO_LED_RED 1
+#define PORT_LED_GREEN GPIOB
+#define GPIO_LED_GREEN 2
+#define PORT_SPI1NSS GPIOA
+#define GPIO_SPI1NSS 4
+
+#define PORT_IN1 GPIOB
+#define GPIO_IN1 4
+#define PORT_IN2 GPIOB
+#define GPIO_IN2 5
+#define PORT_IN3 GPIOB
+#define GPIO_IN3 0
+
+#define PWM_CHANNEL_IN1 0
+#define PWM_CHANNEL_IN2 1
+#define PWM_CHANNEL_IN3 2
+
+
+#define PORT_EN1 GPIOB
+#define GPIO_EN1 10
+#define PORT_EN2 GPIOB
+#define GPIO_EN2 11
+#define PORT_EN3 GPIOB
+#define GPIO_EN3 12
+
+#define PORT_RESET GPIOC
+#define GPIO_RESET 14
+//TODO: next hardware revision add sleep signal
+#define PORT_FAULT GPIOC
+#define GPIO_FAULT 13
+
 /*
  * I/O ports initial setup, this configuration is established soon after reset
  * in the initialization code.

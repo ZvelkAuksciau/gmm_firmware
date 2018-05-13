@@ -63,12 +63,12 @@
 #define PORT_EN3 GPIOA
 #define GPIO_EN3 2
 
-#define GPIO_RESET GPIOA
-#define IO_RESET 3
-#define GPIO_SLEEP GPIOA
-#define IO_RESET 4
-#define GPIO_FAULT GPIOA
-#define IO_RESET 5
+#define PORT_RESET GPIOA
+#define GPIO_RESET 3
+#define PORT_SLEEP GPIOA
+#define GPIO_SLEEP 4
+#define PORT_FAULT GPIOA
+#define GPIO_FAULT 5
 
 
 /*

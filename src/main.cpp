@@ -5,11 +5,12 @@
 #include <node.hpp>
 #include <kmti/gimbal/MotorCommand.hpp>
 
-#include <config/config_storage_flash.hpp>
 #include <config/config.hpp>
 
 #include <bootloader_interface/bootloader_interface.hpp>
 #include "os.hpp"
+
+#include <hardware.hpp>
 
 #define M_PI 3.1415926f
 #define M_2PI 2*M_PI
@@ -25,54 +26,12 @@ static const SerialConfig serialCfg = {
   0
 };
 
-/*
- * SPI configuration (9MHz, CPHA=1, CPOL=0, MSb first).
- */
-static const SPIConfig spicfg = {
-  NULL,
-  GPIOA,
-  GPIOA_SPI1NSS,
-  SPI_CR1_BR_1 | SPI_CR1_CPHA,
-  0
-};
-
-static const PWMConfig pwm_cfg = {
-  72000000,                         // 72 MHz PWM clock frequency
-  1500,                             // 24 kHz PWM frequency
-  NULL,                             // No Callback
-  {
-    {PWM_OUTPUT_ACTIVE_HIGH, NULL},
-    {PWM_OUTPUT_ACTIVE_HIGH, NULL},
-    {PWM_OUTPUT_ACTIVE_HIGH, NULL},
-    {PWM_OUTPUT_DISABLED, NULL}
-  },
-  0,
-  0
-};
-
 #define BOARD_NORMAL                0x00
 #define BOARD_CALIBRATING_NUM_POLES 0x01
 #define BOARD_CALIBRATING_OFFSET    0x04
 
-#define HALF_POWER 750
-
 uint8_t g_boardStatus = 0;
 float cmd_power = 0.0f;
-
-void disableOutput() {
-    palClearPad(GPIOB, GPIOB_EN1);
-    palClearPad(GPIOB, GPIOB_EN2);
-    palClearPad(GPIOB, GPIOB_EN3);
-//    pwmDisableChannel(&PWMD3, 0);
-//    pwmDisableChannel(&PWMD3, 1);
-//    pwmDisableChannel(&PWMD3, 2);
-}
-
-void enableOutput() {
-  palSetPad(GPIOB, GPIOB_EN1);
-  palSetPad(GPIOB, GPIOB_EN2);
-  palSetPad(GPIOB, GPIOB_EN3);
-}
 
 float wrap_2PI(float radian)
 {
@@ -92,30 +51,16 @@ float wrap_PI(float radian)
     return res;
 }
 
-void setPwmCommand(float cmd, float set_power) {
-  float power = HALF_POWER * set_power;
-  if(set_power >= 0.0f) {
-    pwmEnableChannel(&PWMD3, 2, (HALF_POWER + power * sinf(cmd)));
-    pwmEnableChannel(&PWMD3, 1, (HALF_POWER + power * sinf(cmd - 2.094)));
-    pwmEnableChannel(&PWMD3, 0, (HALF_POWER + power * sinf(cmd + 2.094)));
-  } else {
-    pwmEnableChannel(&PWMD3, 1, (HALF_POWER - power * sinf(cmd)));
-    pwmEnableChannel(&PWMD3, 2, (HALF_POWER - power * sinf(cmd - 2.094)));
-    pwmEnableChannel(&PWMD3, 0, (HALF_POWER - power * sinf(cmd + 2.094)));
-
-  }
-}
-
 static THD_WORKING_AREA(waThread1, 128);
 void Thread1(void) {
   chRegSetThreadName("blinker");
 
   while(1) {
-    palClearPad(GPIOB, GPIOB_LED_RED);
-    palSetPad(GPIOB, GPIOB_LED_GREEN);
+    Hardware::setStatusLed(true);
+    Hardware::setCANLed(false);
     chThdSleepMilliseconds(500);
-    palSetPad(GPIOB, GPIOB_LED_RED);
-    palClearPad(GPIOB, GPIOB_LED_GREEN);
+    Hardware::setStatusLed(false);
+    Hardware::setCANLed(true);
     chThdSleepMilliseconds(500);
   }
 }
@@ -124,8 +69,6 @@ os::config::Param<uint8_t> num_poles("mot.num_poles", 7, 1, 255);
 os::config::Param<float> enc_offset("mot.offset", 0.0f, -M_PI, M_PI);
 os::config::Param<int8_t> direction("mot.dir", 1, -1, 1);
 os::config::Param<uint8_t> axis_id("mot.axis_id", 0, 0, 2); //0 - Pitch; 1 - Roll; 2 - Yaw
-
-
 
 //Running at 5khz
 static THD_WORKING_AREA(waRotoryEncThd, 256);
@@ -154,7 +97,7 @@ void RotoryEncThd(void) {
 
   while(1) {
     spiAcquireBus(&SPID1);
-    spiStart(&SPID1, &spicfg);
+    spiStart(&SPID1, &Hardware::spicfg);
     spiSelect(&SPID1);
     spiExchange(&SPID1, 2, AS5048A_ANGLE, &spi_rx_buf);
     spiUnselect(&SPID1);
@@ -166,15 +109,15 @@ void RotoryEncThd(void) {
 
     if(g_boardStatus == BOARD_NORMAL) {
       if(cmd_power > 0.0f) {
-        enableOutput();
+        Hardware::enablePWMOutput();
         float command = mot_pos_rad * num_poles.get() - enc_offset.get() + direction.get() * 1.570796f;
-        setPwmCommand(command, cmd_power);
+        Hardware::setPwmCommand(command, cmd_power);
       } else if(cmd_power < 0.0f) {
-        enableOutput();
+        Hardware::enablePWMOutput();
         float command = mot_pos_rad * num_poles.get() - enc_offset.get()  - direction.get() * 1.570796f;
-        setPwmCommand(command, -cmd_power);
+        Hardware::setPwmCommand(command, -cmd_power);
       } else {
-        disableOutput();
+        Hardware::disablePWMOutput();
       }
     }else if(g_boardStatus & BOARD_CALIBRATING_NUM_POLES) {
       switch(calibState){
@@ -182,8 +125,8 @@ void RotoryEncThd(void) {
         cmd_angle = 0.0f;
         avg_count = 0;
         avg_calc = 0;
-        enableOutput();
-        setPwmCommand(0.0f, 0.3f);
+        Hardware::enablePWMOutput();
+        Hardware::setPwmCommand(0.0f, 0.3f);
         chThdSleepMilliseconds(1000);
         calibState = READ_ZERO_POS;
         break;
@@ -197,7 +140,7 @@ void RotoryEncThd(void) {
         break;
       case DO_ONE_ROTATION:
         cmd_angle += 0.005f;
-        setPwmCommand(cmd_angle, 0.4f);
+        Hardware::setPwmCommand(cmd_angle, 0.4f);
         int32_t diff = mot_pos - avg_calc;
         if(cmd_angle > 1.0f && !dir_calibrated) {
           if(diff > 0) {
@@ -214,7 +157,7 @@ void RotoryEncThd(void) {
           if(diff < 100 && diff > -100) {
             g_boardStatus &= ~BOARD_CALIBRATING_NUM_POLES;
             calibState = GO_TO_ZERO;
-            disableOutput();
+            Hardware::disablePWMOutput();
             num_poles.set(round(cmd_angle/6.2831f));
             //Node::publishKeyValue("mot_poles", num_poles.get());
             os::config::save();
@@ -225,10 +168,10 @@ void RotoryEncThd(void) {
     } else if(g_boardStatus & BOARD_CALIBRATING_OFFSET) {
       switch(calibState){
       case GO_TO_ZERO:
-        enableOutput();
+        Hardware::enablePWMOutput();
         avg_count = 0;
         off_avg = 0.0f;
-        setPwmCommand(0.0f, 0.4f);
+        Hardware::setPwmCommand(0.0f, 0.4f);
         chThdSleepMilliseconds(1000);
         cmd_angle = 0.0f;
         calibState = DO_4_ROTATIONS;
@@ -237,7 +180,7 @@ void RotoryEncThd(void) {
         off_avg += wrap_2PI(mot_pos_rad*num_poles.get() - cmd_angle);
         avg_count++;
         cmd_angle += direction.get() * 0.005f;
-        setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
+        Hardware::setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
         if(cmd_angle >= 4*M_2PI*num_poles.get()) {
           off_avg /= avg_count;
           //Node::publishKeyValue("mot_pos_off", off_avg);
@@ -252,7 +195,7 @@ void RotoryEncThd(void) {
         off_avg += wrap_2PI(mot_pos_rad*num_poles.get() - cmd_angle);
         avg_count++;
         cmd_angle -= direction.get() * 0.005f;
-        setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
+        Hardware::setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
         if(cmd_angle <= -4*M_2PI*num_poles.get()) {
           off_avg /= avg_count;
           //Node::publishKeyValue("mot_neg_off", off_avg);
@@ -333,26 +276,10 @@ auto onFirmwareUpdateRequestedFromUAVCAN(
 
 systime_t lastCommandTime = 0;
 
-static void* const ConfigStorageAddress = reinterpret_cast<void*>(0x08000000 + (128 * 1024) - 1024);
-constexpr unsigned ConfigStorageSize = 1024;
 
 int main(void) {
-  halInit();
-  chSysInit();
-
-  os::watchdog::init();
-  os::watchdog::Timer wdt;
-  wdt.startMSec(5000);
-  wdt.reset();
-
-  sdStart(&SD1, &serialCfg);
-  pwmStart(&PWMD3, &pwm_cfg);
-  PWMD3.tim->CR1 |= STM32_TIM_CR1_CMS(1); //Set Center aligned mode
-
-  disableOutput();
-
-  static os::stm32::ConfigStorageBackend config_storage_backend(ConfigStorageAddress, ConfigStorageSize);
-  const int config_init_res = os::config::init(&config_storage_backend);
+  //Hardware and chibios init
+  os::watchdog::Timer wdt = Hardware::init();
 
   const auto fw_version = bootloader_interface::getFirmwareVersion();
 
@@ -391,7 +318,7 @@ int main(void) {
   while(1) {
       if(lastCommandTime != 0 && lastCommandTime + MS2ST(200) < chVTGetSystemTime()) {
           lastCommandTime = 0;
-          disableOutput();
+          Hardware::disablePWMOutput();
           cmd_power = 0.0f;
       }
       chThdSleepMilliseconds(100);
