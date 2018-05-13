@@ -258,24 +258,26 @@ include $(RULESPATH)/rules.mk
 HW_VERSION_MAJOR_MINOR := $(HAL_VERSION).0
 FW_VERSION_MAJOR_MINOR_VCS_HASH := $(FW_VERSION_MAJOR).$(FW_VERSION_MINOR).$(GIT_HASH)
 COMPOUND_IMAGE_FILE := $(PROJECT)-$(HW_VERSION_MAJOR_MINOR)-$(FW_VERSION_MAJOR_MINOR_VCS_HASH).compound.bin
+APPLICATION_IMAGE_FILE := $(PROJECT)-$(HW_VERSION_MAJOR_MINOR)-$(FW_VERSION_MAJOR_MINOR_VCS_HASH).application.bin
 
 BOOTLOADER_IMAGE := ../bootloader/build/gmm_bootloader.bin
 
 .PHONY: binaries
-binaries:
+POST_MAKE_ALL_RULE_HOOK:
 	# Removing previous build outputs that could use a different git hash
 	rm -rf build/*.application.bin build/*.compound.bin
 
 	# Generating compound image with embedded bootloader
 	cd build && dd if=/dev/zero bs=$(BOOTLOADER_SIZE) count=1 | tr "\000" "\377" >padded_bootloader.tmp.bin
 	cd build && dd if=$(BOOTLOADER_IMAGE) of=padded_bootloader.tmp.bin conv=notrunc
-	cd build && cat padded_bootloader.tmp.bin $(PROJECT).bin >$(COMPOUND_IMAGE_FILE)
+	#cd build && cat padded_bootloader.tmp.bin $(PROJECT).bin >$(COMPOUND_IMAGE_FILE)
 
 	# Generating the signed image for the bootloader
 	cd build && python2 ../tools/make_boot_descriptor.py $(PROJECT).bin $(PROJECT) $(HW_VERSION_MAJOR_MINOR) \
-	                                                           --also-patch-descriptor-in=$(PROJECT).elf           \
-	                                                           --also-patch-descriptor-in=$(COMPOUND_IMAGE_FILE) -v
+	                                                           --also-patch-descriptor-in=$(PROJECT).elf -v
 
+	cd build && cat padded_bootloader.tmp.bin $(APPLICATION_IMAGE_FILE) >$(COMPOUND_IMAGE_FILE)
+	
 	# Injecting the bootloader into the final ELF
 	cd build && $(CP) --add-section bootloader=$(BOOTLOADER_IMAGE)   \
 	                                        --set-section-flags bootloader=load,alloc      \
