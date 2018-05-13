@@ -47,7 +47,7 @@ endif
 # If enabled, this option makes the build process faster by not compiling
 # modules not used in the current configuration.
 ifeq ($(USE_SMART_BUILD),)
-  USE_SMART_BUILD = yes
+  USE_SMART_BUILD = no
 endif
 
 #
@@ -84,6 +84,8 @@ endif
 ##############################################################################
 # Project, sources and paths
 #
+
+UINCDIR += src src/sys
 
 # Define project name here
 PROJECT = gmm_firmware
@@ -188,10 +190,6 @@ INCDIR = src board $(CHIBIOS)/os/license \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
          $(CHIBIOS)/os/various $(CHCPPINC)
          
-UINCDIR += src src/sys
-
-
-
 #
 # Project, sources and paths
 ##############################################################################
