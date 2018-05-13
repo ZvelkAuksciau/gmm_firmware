@@ -12,7 +12,7 @@ HW_VERSION_MAJOR = 1
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -Os -fomit-frame-pointer -falign-functions=16
+  USE_OPT = -Os -ggdb -fomit-frame-pointer -falign-functions=16
  # USE_OPT += -nodefaultlibs
 endif
 
@@ -142,7 +142,7 @@ UDEFS += -DBL_VERSION_MAJOR=$(BL_VERSION_MAJOR)
 UDEFS += -DBL_VERSION_MINOR=$(BL_VERSION_MINOR)
 UDEFS += -DGIT_HASH=$(GIT_HASH)
 UDEFS += -DHW_VERSION_MAJOR=$(HW_VERSION_MAJOR)
-UDEFS += -DDEBUG_BUILD
+UDEFS += -DDEBUG_BUILD=1
 UDEFS += -DHAL_BRD_VERSION=1
 #CSRC += $(UAVCAN)/canard.c
 

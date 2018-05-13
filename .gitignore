@@ -2,6 +2,7 @@ build/*
 .dep/*
 bootloader/build/*
 bootloader/.dep/*
+bootloader/.settings/*
 
 .cproject
 .project

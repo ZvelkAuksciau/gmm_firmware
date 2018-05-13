@@ -4,6 +4,8 @@
 //#include <uavcan/protocol/debug/KeyValue.hpp>
 
 #include <uavcan/protocol/param_server.hpp>
+#include <uavcan/protocol/file/BeginFirmwareUpdate.hpp>
+
 #include <config/config.hpp>
 
 #include <ch.hpp>
@@ -17,6 +19,8 @@ namespace Node {
   uavcan_stm32::CanInitHelper<> can;
 
   uavcan::protocol::SoftwareVersion firmware_version;
+
+  FirmwareUpdateRequestCallback g_on_firmware_update_requested;
 
   uavcan::Node<NodePoolSize>& getNode() {
     static uavcan::Node<NodePoolSize> node(can.driver, uavcan_stm32::SystemClock::instance());
@@ -149,6 +153,43 @@ namespace Node {
 //      kv_pub.broadcast(kv_msg);
 //  }
 
+  /*
+   * Firmware update handler
+   */
+  typedef uavcan::ServiceServer<uavcan::protocol::file::BeginFirmwareUpdate,
+      void (*)(const uavcan::ReceivedDataStructure<uavcan::protocol::file::BeginFirmwareUpdate::Request>&,
+               uavcan::protocol::file::BeginFirmwareUpdate::Response&)>
+      BeginFirmwareUpdateServer;
+
+  BeginFirmwareUpdateServer& getBeginFirmwareUpdateServer()
+  {
+      static BeginFirmwareUpdateServer srv(getNode());
+      return srv;
+  }
+
+  void handleBeginFirmwareUpdateRequest(
+      const uavcan::ReceivedDataStructure<uavcan::protocol::file::BeginFirmwareUpdate::Request>& request,
+      uavcan::protocol::file::BeginFirmwareUpdate::Response& response)
+  {
+      assert(bus_speed.get() > 0);
+ //     assert(g_node_id.isUnicast());
+
+//      os::lowsyslog("BeginFirmwareUpdate request from %d\n", int(request.getSrcNodeID().get()));
+
+      if (g_on_firmware_update_requested)
+      {
+          response.error = g_on_firmware_update_requested(request);
+      }
+      else
+      {
+//          os::lowsyslog("UAVCAN FIRMWARE UPDATE HANDLER NOT SET\n");
+          response.error = response.ERROR_UNKNOWN;
+          response.optional_error_message = "Not supported by application";
+      }
+  }
+
+
+
   void uavcanNodeThread::main() {
     can.init(bus_speed.get());
 
@@ -177,6 +218,9 @@ namespace Node {
     uavcan::ParamServer server(getNode());
     server.start(&param_manager);
 
+    const int begin_firmware_update_res = getBeginFirmwareUpdateServer().start(&handleBeginFirmwareUpdateRequest);
+
+
     getNode().setModeOperational();
 
     while(true) {
@@ -187,6 +231,10 @@ namespace Node {
     }
   }
 
+  uint32_t getCANBitRate() {
+      return bus_speed.get();
+  }
+
   uavcanNodeThread node_thread;
 
   void init(uint32_t bit_rate,
@@ -194,13 +242,16 @@ namespace Node {
             uint8_t firmware_vers_major,
             uint8_t firmware_vers_minor,
             uint32_t vcs_commit,
-            uint64_t crc64) {
+            uint64_t crc64,
+            const FirmwareUpdateRequestCallback& on_firmware_update_requested) {
       firmware_version.major = firmware_vers_major;
       firmware_version.minor = firmware_vers_minor;
       firmware_version.vcs_commit = vcs_commit;
       firmware_version.image_crc = crc64;
       firmware_version.optional_field_flags =
               firmware_version.OPTIONAL_FIELD_FLAG_IMAGE_CRC | firmware_version.OPTIONAL_FIELD_FLAG_VCS_COMMIT;
+
+      g_on_firmware_update_requested = on_firmware_update_requested;
 
       node_thread.start(NORMALPRIO);
 

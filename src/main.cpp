@@ -271,6 +271,66 @@ void RotoryEncThd(void) {
   }
 }
 
+auto onFirmwareUpdateRequestedFromUAVCAN(
+    const uavcan::ReceivedDataStructure<uavcan::protocol::file::BeginFirmwareUpdate::Request>& request)
+{
+    /*
+     * Checking preconditions
+     */
+    static bool already_in_progress = false;
+
+    const std::uint8_t source_node_id =
+        ((request.source_node_id > 0) &&
+         (request.source_node_id <= uavcan::NodeID::Max) &&
+         uavcan::NodeID(request.source_node_id).isUnicast()) ?
+            request.source_node_id :
+            request.getSrcNodeID().get();
+
+//    os::lowsyslog("UAVCAN firmware update request from %d, source %d, path '%s'\n",
+//                  request.getSrcNodeID().get(),
+//                  source_node_id,
+//                  request.image_file_remote_path.path.c_str());
+
+    if (already_in_progress)
+    {
+//        os::lowsyslog("UAVCAN firmware update is already in progress, rejecting\n");
+        return uavcan::protocol::file::BeginFirmwareUpdate::Response::ERROR_IN_PROGRESS;
+    }
+
+    /*
+     * Initializing the app shared structure with proper arguments
+     */
+    //Node::Lock locker;
+
+    bootloader_interface::AppShared shared;
+    shared.can_bus_speed = Node::getCANBitRate();
+    shared.uavcan_node_id = Node::getNode().getNodeID().get();
+    shared.uavcan_fw_server_node_id = source_node_id;
+    shared.stay_in_bootloader = true;
+
+    std::strncpy(static_cast<char*>(&shared.uavcan_file_name[0]),       // This is really messy
+                 request.image_file_remote_path.path.c_str(),
+                 shared.UAVCANFileNameMaxLength);
+    shared.uavcan_file_name[shared.UAVCANFileNameMaxLength - 1] = '\0';
+
+    static_assert(request.image_file_remote_path.path.MaxSize < shared.UAVCANFileNameMaxLength, "Err...");
+
+//    os::lowsyslog("Bootloader args: CAN bus bitrate: %u, local node ID: %d\n",
+//                  unsigned(shared.can_bus_speed), shared.uavcan_node_id);
+
+    /*
+     * Commiting everything
+     */
+    bootloader_interface::writeSharedStruct(shared);
+
+    NVIC_SystemReset();
+
+    already_in_progress = true;
+
+    os::lowsyslog("UAVCAN firmware update initiated\n");
+    return uavcan::protocol::file::BeginFirmwareUpdate::Response::ERROR_OK;
+}
+
 systime_t lastCommandTime = 0;
 
 static void* const ConfigStorageAddress = reinterpret_cast<void*>(0x08000000 + (128 * 1024) - 1024);
@@ -283,6 +343,7 @@ int main(void) {
   os::watchdog::init();
   os::watchdog::Timer wdt;
   wdt.startMSec(5000);
+  wdt.reset();
 
   sdStart(&SD1, &serialCfg);
   pwmStart(&PWMD3, &pwm_cfg);
@@ -305,7 +366,8 @@ int main(void) {
           fw_version.major,
           fw_version.minor,
           fw_version.vcs_commit,
-          fw_version.image_crc64we);
+          fw_version.image_crc64we,
+          &onFirmwareUpdateRequestedFromUAVCAN);
 
   g_boardStatus |= BOARD_CALIBRATING_OFFSET | BOARD_CALIBRATING_NUM_POLES;
   chThdSleepMilliseconds(200);

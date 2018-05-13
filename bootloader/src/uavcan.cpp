@@ -71,7 +71,7 @@ void init(os::bootloader::Bootloader& bl,
     g_node.construct<os::bootloader::Bootloader&,
                      os::bootloader::uavcan_loader::ICANIface&,
                      const char*,
-                     const os::bootloader::uavcan_loader::HardwareInfo&>(bl, g_iface, "000", hw);
+                     const os::bootloader::uavcan_loader::HardwareInfo&>(bl, g_iface, PRODUCT_NAME_STRING, hw);
 
     (void) g_node->start(HIGHPRIO,
                          can_bit_rate,

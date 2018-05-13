@@ -37,26 +37,31 @@
 /*
  * IO pins assignments.
  */
-#define GPIO_LED_RED GPIOB
-#define LED_RED 6
-#define GPIO_LED_GREEN GPIOB
-#define LED_GREEN 7
-#define GPIO_SPI1NSS GPIOA
-#define SPI1NSS 8
+#define PORT_LED_RED GPIOB
+#define GPIO_LED_RED 6
+#define PORT_LED_GREEN GPIOB
+#define GPIO_LED_GREEN 7
+#define PORT_SPI1NSS GPIOA
+#define GPIO_SPI1NSS 8
 
-#define GPIO_IN1 GPIOA
-#define IO_IN1 6
-#define GPIO_IN2 GPIOA
-#define IO_IN2 7
-#define GPIO_IN3 GPIOB
-#define IO_IN3 0
+#define PORT_IN1 GPIOA
+#define GPIO_IN1 6
+#define PORT_IN2 GPIOA
+#define GPIO_IN2 7
+#define PORT_IN3 GPIOB
+#define GPIO_IN3 0
 
-#define GPIO_EN1 GPIOA
-#define IO_EN1 0
-#define GPIO_EN2 GPIOA
-#define IO_EN2 1
-#define GPIO_EN3 GPIOA
-#define IO_EN3 2
+#define PWM_CHANNEL_IN1 0
+#define PWM_CHANNEL_IN2 1
+#define PWM_CHANNEL_IN3 2
+
+
+#define PORT_EN1 GPIOA
+#define GPIO_EN1 0
+#define PORT_EN2 GPIOA
+#define GPIO_EN2 1
+#define PORT_EN3 GPIOA
+#define GPIO_EN3 2
 
 #define GPIO_RESET GPIOA
 #define IO_RESET 3
@@ -93,32 +98,37 @@
 /*
  * Port A setup.
  * Everything input with pull-up except:
- * PA4 - SPI1 SEL
- * PA5 - SPI1 SCK
- * PA6 - SPI1 MISO
- * PA7 - SPI1 MOSI
- * PA9  - Digital input with Pull up (USART1_TX).
- * PA10 - Alternate Push Pull (USART1_RX).
- * PA15 - Digital input with pull up (ENC_PWM).
+ * PA0  - Push Pull output 2MHz EN1
+ * PA1  - Push Pull output 2MHz EN2
+ * PA2  - Push Pull output 2MHz EN3
+ * PA3  - Push Pull output 2MHz DRV_RESET
+ * PA4  - Push Pull output 2MHz DRV_SLEEP
+ * PA5  - Digital input with PullUp or PullDown DRV_FAULT
+ * PA6  - Alternate Push Pull output 50MHz PWM_IN1
+ * PA7  - Alternate Push Pull output 50MHz PWM_IN2
+ * PA8  - Push Pull output 50MHz ENC_SEL
+ * PA9  - Alternate Push Pull 50MHz (USART1_TX).
+ * PA10 - Digital input with Pull up (USART1_RX).
+ * PA11 - Digital input CAN_RX
+ * PA12 - Alternate Push Pull output 50MHz CAN_TX
  */
-#define VAL_GPIOACRL            0x99918888      /*  PA7...PA0 */
-#define VAL_GPIOACRH            0x888888B8      /* PA15...PA8 */
-#define VAL_GPIOAODR            0xFFFFFFFF
+#define VAL_GPIOACRL            0xBB822222      /*  PA7...PA0 */
+#define VAL_GPIOACRH            0x888B48B3      /* PA15...PA8 */
+#define VAL_GPIOAODR            0xFFFFFFF8
 
 /*
  * Port B setup.
  * Everything input with pull-up except:
- * PB1 PB2  - Push Pull output     (LED).
- * PB6 - Open drain alternative (I2C1_SCL) DO NOT USE. See errata
- * PB7 - Open drain alternative (I2C1_SDA) DO NOT USE. See errata
- * PB0 PB4 PB5 - Alternate Push Pull output motor driver.
- * PB10 PB11 PB12 - Push Pull output motor driver.
- * PB10 - Alternate Push pull  (USART3_TX).
- * PB11 - Input with pull up   (USART3_RX).
+ * PB0 - Alternate Push Pull output 50MHz PWM_IN3
+ * PB3 - Alternate Push Pull output 50MHz SP1_SCK
+ * PB4 - Digital input with PullUp SPI1_MISO
+ * PB5 - Alternate Push Pull output 50MHz SPI1_MOSI
+ * PB6 - Push Pull output 2MHz STATUS_LED_RED
+ * PB7 - Push Pull output 2MHz STATUS_LED_GREEN
  */
-#define VAL_GPIOBCRL            0x88BB822B      /*  PB7...PB0 */
-#define VAL_GPIOBCRH            0x888222B8      /* PB15...PB8 */
-#define VAL_GPIOBODR            0xFFFF0CC0
+#define VAL_GPIOBCRL            0x228BB88B      /*  PB7...PB0 */
+#define VAL_GPIOBCRH            0x88888888      /* PB15...PB8 */
+#define VAL_GPIOBODR            0xFFFFFF3F
 
 /*
  * Port C setup.

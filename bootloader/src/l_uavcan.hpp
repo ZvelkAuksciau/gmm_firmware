@@ -790,7 +790,7 @@ class UAVCANFirmwareUpdateNode : protected ::os::bootloader::IDownloader,
              * Note that the watchdog is not reset in the loop, since its timeout is large enough to wait for response.
              */
             const std::uint64_t response_deadline =
-                getMonotonicTimestampUSec() + ServiceRequestTimeoutMillisecond * 1000;
+                getMonotonicTimestampUSec() + ServiceRequestTimeoutMillisecond * 3000;
 
             read_result_ = std::numeric_limits<int>::max();
 
