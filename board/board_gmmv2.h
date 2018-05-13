@@ -20,7 +20,6 @@
 /*
  * Board identifier.
  */
-//#define BOARD_OLIMEX_STM32_P103
 #define BOARD_NAME              "Gimbal_CTRL_Rev2"
 
 /*
@@ -171,7 +170,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void boardInit(void);
+    void boardInit(void);
 #ifdef __cplusplus
 }
 #endif

@@ -20,7 +20,6 @@
 /*
  * Board identifier.
  */
-//#define BOARD_OLIMEX_STM32_P103
 #define BOARD_NAME              "Gimbal_CTRL_Rev1"
 
 /*
@@ -33,21 +32,6 @@
  * MCU type, supported types are defined in ./os/hal/platforms/hal_lld.h.
  */
 #define STM32F103xB
-
-/*
- * IO pins assignments.
- */
-#define GPIOB_LED_RED 1
-#define GPIOB_LED_GREEN 2
-#define GPIOA_SPI1NSS 4
-
-#define GPIOB_IN1 4
-#define GPIOB_IN2 5
-#define GPIOB_IN3 0
-#define GPIOB_EN1 10
-#define GPIOB_EN2 11
-#define GPIOB_EN3 12
-#define GPIOC_RESET 14
 
 /*
  * IO pins assignments.
@@ -179,7 +163,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void boardInit(void);
+    void boardInit(void);
 #ifdef __cplusplus
 }
 #endif

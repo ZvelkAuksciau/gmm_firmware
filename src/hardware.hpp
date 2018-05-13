@@ -12,8 +12,8 @@ namespace Hardware {
      */
     static const SPIConfig spicfg = {
         NULL,
-        GPIOA,
-        GPIOA_SPI1NSS,
+        PORT_SPI1NSS,
+        GPIO_SPI1NSS,
         SPI_CR1_BR_1 | SPI_CR1_CPHA,
         0
     };

@@ -24,11 +24,11 @@
 #if HAL_USE_PAL || defined(__DOXYGEN__)
 const PALConfig pal_default_config =
 {
-  {VAL_GPIOAODR, VAL_GPIOACRL, VAL_GPIOACRH},
-  {VAL_GPIOBODR, VAL_GPIOBCRL, VAL_GPIOBCRH},
-  {VAL_GPIOCODR, VAL_GPIOCCRL, VAL_GPIOCCRH},
-  {VAL_GPIODODR, VAL_GPIODCRL, VAL_GPIODCRH},
-  {VAL_GPIOEODR, VAL_GPIOECRL, VAL_GPIOECRH},
+    {VAL_GPIOAODR, VAL_GPIOACRL, VAL_GPIOACRH},
+    {VAL_GPIOBODR, VAL_GPIOBCRL, VAL_GPIOBCRH},
+    {VAL_GPIOCODR, VAL_GPIOCCRL, VAL_GPIOCCRH},
+    {VAL_GPIODODR, VAL_GPIODCRL, VAL_GPIODCRH},
+    {VAL_GPIOEODR, VAL_GPIOECRL, VAL_GPIOECRH},
 };
 #endif
 
@@ -39,21 +39,21 @@ const PALConfig pal_default_config =
  */
 void __early_init(void) {
 
-  stm32_clock_init();
+    stm32_clock_init();
 }
 
 #if HAL_USE_MMC_SPI
 /* Board-related functions related to the MMC_SPI driver.*/
 bool mmc_lld_is_card_inserted(MMCDriver *mmcp) {
 
-  (void)mmcp;
-  return palReadPad(GPIOC, GPIOC_MMCCP);
+    (void)mmcp;
+    return palReadPad(GPIOC, GPIOC_MMCCP);
 }
 
 bool mmc_lld_is_write_protected(MMCDriver *mmcp) {
 
-  (void)mmcp;
-  return !palReadPad(GPIOC, GPIOC_MMCWP);
+    (void)mmcp;
+    return !palReadPad(GPIOC, GPIOC_MMCWP);
 }
 #endif
 
@@ -61,9 +61,9 @@ bool mmc_lld_is_write_protected(MMCDriver *mmcp) {
  * Board-specific initialization code.
  */
 void boardInit(void) {
-  //AFIO->MAPR |= AFIO_MAPR_TIM2_REMAP;
-  AFIO->MAPR |= AFIO_MAPR_CAN_REMAP_REMAP2; //CAN1 PB8 and PB9
-  AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_0; // configure PB4 pin to be used as PWM output instead of JTAG
-  AFIO->MAPR |= AFIO_MAPR_TIM3_REMAP_PARTIALREMAP; // configure alternate mode for PWM
+    //AFIO->MAPR |= AFIO_MAPR_TIM2_REMAP;
+    AFIO->MAPR |= AFIO_MAPR_CAN_REMAP_REMAP2; //CAN1 PB8 and PB9
+    AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_0; // configure PB4 pin to be used as PWM output instead of JTAG
+    AFIO->MAPR |= AFIO_MAPR_TIM3_REMAP_PARTIALREMAP; // configure alternate mode for PWM
 
 }
