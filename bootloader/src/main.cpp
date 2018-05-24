@@ -164,7 +164,7 @@ int main(void) {
         bootloader_app_interface::AppShared as;
         as.can_bus_speed  = p.can_bus_bit_rate;
         as.uavcan_node_id = p.local_node_id;
-        assert((as.can_bus_speed  <= 125000) &&
+        assert((as.can_bus_speed  <= 1000000) &&
                (as.uavcan_node_id <= 127));
 
         bootloader_app_interface::write(as);
