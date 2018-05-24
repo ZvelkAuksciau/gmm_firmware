@@ -4,11 +4,11 @@
 #
 
 APPLICATION_OFFSET = 32768
-PRODUCT_NAME_STRING = \"KMTI\ gimbal\ motor\"
 BL_VERSION_MAJOR = 1
 BL_VERSION_MINOR = 0
 GIT_HASH = $(shell git rev-parse --short HEAD)
 HW_VERSION_MAJOR = 1
+PRODUCT_NAME_STRING = \"org.kmti.gimbalmotor.bl.$(BL_VERSION_MAJOR).$(BL_VERSION_MINOR)\"
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
