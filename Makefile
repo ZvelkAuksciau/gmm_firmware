@@ -5,8 +5,8 @@
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
-  USE_OPT += -nodefaultlibs -lc -lgcc -lm
+  USE_OPT = -Os -ggdb -fomit-frame-pointer -falign-functions=16
+  USE_OPT += -nodefaultlibs -lgcc -lm -lc
 endif
 
 # C specific options here (added to USE_OPT).
@@ -31,7 +31,7 @@ endif
 
 # Enable this if you want link time optimizations (LTO)
 ifeq ($(USE_LTO),)
-  USE_LTO = yes
+  USE_LTO = no
 endif
 
 # If enabled, this option allows to compile the application in THUMB mode.
@@ -63,7 +63,7 @@ USE_COPT += -std=c99
 # Stack size to be allocated to the Cortex-M process stack. This stack is
 # the stack used by the main() thread.
 ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x400
+  USE_PROCESS_STACKSIZE = 0x800
 endif
 
 # Stack size to the allocated to the Cortex-M main/exceptions stack. This

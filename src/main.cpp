@@ -1,9 +1,9 @@
 #include <ch.h>
 #include <hal.h>
-#include <math.h>
 
 #include <node.hpp>
 #include <kmti/gimbal/MotorCommand.hpp>
+#include <kmti/gimbal/MotorStatus.hpp>
 
 #include <config/config.hpp>
 
@@ -11,6 +11,7 @@
 #include "os.hpp"
 
 #include <hardware.hpp>
+#include "math.h"
 
 #define M_PI 3.1415926f
 #define M_2PI 2*M_PI
@@ -35,7 +36,7 @@ float cmd_power = 0.0f;
 
 float wrap_2PI(float radian)
 {
-    float res = 0.0f;//fmodf(radian, M_2PI); //TODO: fix errno error
+    float res = fmodf(radian, M_2PI); //TODO: fix errno error
     if (res < 0) {
         res += M_2PI;
     }
@@ -69,6 +70,9 @@ os::config::Param<uint8_t> num_poles("mot.num_poles", 7, 1, 255);
 os::config::Param<float> enc_offset("mot.offset", 0.0f, -M_PI, M_PI);
 os::config::Param<int8_t> direction("mot.dir", 1, -1, 1);
 os::config::Param<uint8_t> axis_id("mot.axis_id", 0, 0, 2); //0 - Pitch; 1 - Roll; 2 - Yaw
+os::config::Param<bool> calib_on_next_start("mot.calib", false);
+
+float mot_pos_rad = 0.0f;
 
 //Running at 5khz
 static THD_WORKING_AREA(waRotoryEncThd, 256);
@@ -78,7 +82,7 @@ void RotoryEncThd(void) {
     const uint8_t AS5048A_ANGLE[2] = {0xFF, 0xFF};
     uint8_t spi_rx_buf[2];
     uint16_t mot_pos = 0;
-    float mot_pos_rad = 0.0f;
+    //float mot_pos_rad = 0.0f;
 
     enum {
         GO_TO_ZERO,
@@ -95,6 +99,8 @@ void RotoryEncThd(void) {
     float cmd_angle = 0.0f;
     bool dir_calibrated = false;
 
+#define CALIBRATION_POWER 1.0f
+
     while(1) {
         spiAcquireBus(&SPID1);
         spiStart(&SPID1, &Hardware::spicfg);
@@ -108,17 +114,21 @@ void RotoryEncThd(void) {
         mot_pos_rad = mot_pos * 0.00038349519f;
 
         if(g_boardStatus == BOARD_NORMAL) {
-            if(cmd_power > 0.0f) {
-                Hardware::enablePWMOutput();
-                float command = mot_pos_rad * num_poles.get() - enc_offset.get() + direction.get() * 1.570796f;
-                Hardware::setPwmCommand(command, cmd_power);
-            } else if(cmd_power < 0.0f) {
-                Hardware::enablePWMOutput();
-                float command = mot_pos_rad * num_poles.get() - enc_offset.get()    - direction.get() * 1.570796f;
-                Hardware::setPwmCommand(command, -cmd_power);
-            } else {
-                Hardware::disablePWMOutput();
-            }
+            if(direction.get() != 0) {
+                if(cmd_power > 0.0f) {
+                    Hardware::enablePWMOutput();
+                    float command = mot_pos_rad * num_poles.get() - enc_offset.get() + 1.570796f;
+                    command *= direction.get();
+                    Hardware::setPwmCommand(command, cmd_power);
+                } else if(cmd_power < 0.0f) {
+                    Hardware::enablePWMOutput();
+                    float command = mot_pos_rad * num_poles.get() - enc_offset.get() - 1.570796f;
+                    command *= direction.get();
+                    Hardware::setPwmCommand(command, -cmd_power);
+                } else {
+                    Hardware::disablePWMOutput();
+                }
+            } else Hardware::disablePWMOutput();
         }else if(g_boardStatus & BOARD_CALIBRATING_NUM_POLES) {
             switch(calibState){
             case GO_TO_ZERO:
@@ -126,7 +136,7 @@ void RotoryEncThd(void) {
                 avg_count = 0;
                 avg_calc = 0;
                 Hardware::enablePWMOutput();
-                Hardware::setPwmCommand(0.0f, 0.3f);
+                Hardware::setPwmCommand(0.0f, CALIBRATION_POWER);
                 chThdSleepMilliseconds(1000);
                 calibState = READ_ZERO_POS;
                 break;
@@ -140,7 +150,7 @@ void RotoryEncThd(void) {
                 break;
             case DO_ONE_ROTATION:
                 cmd_angle += 0.005f;
-                Hardware::setPwmCommand(cmd_angle, 0.4f);
+                Hardware::setPwmCommand(cmd_angle, CALIBRATION_POWER);
                 int32_t diff = mot_pos - avg_calc;
                 if(cmd_angle > 1.0f && !dir_calibrated) {
                     if(diff > 0) {
@@ -171,7 +181,7 @@ void RotoryEncThd(void) {
                 Hardware::enablePWMOutput();
                 avg_count = 0;
                 off_avg = 0.0f;
-                Hardware::setPwmCommand(0.0f, 0.4f);
+                Hardware::setPwmCommand(0.0f, CALIBRATION_POWER);
                 chThdSleepMilliseconds(1000);
                 cmd_angle = 0.0f;
                 calibState = DO_4_ROTATIONS;
@@ -180,8 +190,8 @@ void RotoryEncThd(void) {
                 off_avg += wrap_2PI(mot_pos_rad*num_poles.get() - cmd_angle);
                 avg_count++;
                 cmd_angle += direction.get() * 0.005f;
-                Hardware::setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
-                if(cmd_angle >= 4*M_2PI*num_poles.get()) {
+                Hardware::setPwmCommand(wrap_2PI(cmd_angle), CALIBRATION_POWER);
+                if(fabs(cmd_angle) >= 4*M_2PI*num_poles.get()) {
                     off_avg /= avg_count;
                     //Node::publishKeyValue("mot_pos_off", off_avg);
                     enc_offset.set(off_avg);
@@ -195,8 +205,8 @@ void RotoryEncThd(void) {
                 off_avg += wrap_2PI(mot_pos_rad*num_poles.get() - cmd_angle);
                 avg_count++;
                 cmd_angle -= direction.get() * 0.005f;
-                Hardware::setPwmCommand(wrap_2PI(cmd_angle), 0.4f);
-                if(cmd_angle <= -4*M_2PI*num_poles.get()) {
+                Hardware::setPwmCommand(wrap_2PI(cmd_angle), CALIBRATION_POWER);
+                if(fabs(cmd_angle) >= 4*M_2PI*num_poles.get()) {
                     off_avg /= avg_count;
                     //Node::publishKeyValue("mot_neg_off", off_avg);
                     enc_offset.set(enc_offset.get()/2.0f + off_avg/2.0f);
@@ -291,7 +301,10 @@ int main(void) {
             fw_version.vcs_commit, fw_version.image_crc64we,
             &onFirmwareUpdateRequestedFromUAVCAN);
 
-    g_boardStatus |= BOARD_CALIBRATING_OFFSET | BOARD_CALIBRATING_NUM_POLES;
+    if(calib_on_next_start.get()) {
+        g_boardStatus |= BOARD_CALIBRATING_OFFSET | BOARD_CALIBRATING_NUM_POLES;
+        calib_on_next_start.setAndSave(false);
+    }
     chThdSleepMilliseconds(200);
 
     uavcan::Subscriber<kmti::gimbal::MotorCommand> mot_sub(Node::getNode());
@@ -300,9 +313,14 @@ int main(void) {
             mot_sub.start(
                     [&](const uavcan::ReceivedDataStructure<kmti::gimbal::MotorCommand>& msg)
                     {
-                        cmd_power = msg.cmd[2];       //axis_id.get()];
+                        cmd_power = msg.cmd[axis_id.get()];
                         lastCommandTime = chVTGetSystemTime();
                     });
+
+    uavcan::Publisher<kmti::gimbal::MotorStatus> mot_status(Node::getNode());
+    mot_status.init();
+
+    kmti::gimbal::MotorStatus mot_status_msg;
 
     if (mot_sub_start_res < 0) {
         chSysHalt("Failed to start subscriber");
@@ -320,6 +338,9 @@ int main(void) {
             Hardware::disablePWMOutput();
             cmd_power = 0.0f;
         }
+        mot_status_msg.axis_id = axis_id.get();
+        mot_status_msg.motor_pos = mot_pos_rad;
+        mot_status.broadcast(mot_status_msg);
         chThdSleepMilliseconds(100);
         wdt.reset();
     }
