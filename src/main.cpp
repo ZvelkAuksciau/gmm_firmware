@@ -67,9 +67,10 @@ void Thread1(void) {
 }
 
 os::config::Param<uint8_t> num_poles("mot.num_poles", 7, 1, 255);
-os::config::Param<float> enc_offset("mot.offset", 0.0f, -M_PI, M_PI);
+os::config::Param<float> enc_offset("mot.offset", 0.0f, -M_PI, M_PI); //Electrical and mechanical angle offset between electrical phase and encoder
 os::config::Param<int8_t> direction("mot.dir", 1, -1, 1);
 os::config::Param<uint8_t> axis_id("mot.axis_id", 0, 0, 2); //0 - Pitch; 1 - Roll; 2 - Yaw
+os::config::Param<float> axis_offset("mot.enc_off", 0.0f, -M_PI, M_PI); //Axis offset used for figuring out gimbal frame position
 os::config::Param<bool> calib_on_next_start("mot.calib", false);
 
 float mot_pos_rad = 0.0f;
@@ -339,9 +340,10 @@ int main(void) {
             cmd_power = 0.0f;
         }
         mot_status_msg.axis_id = axis_id.get();
-        mot_status_msg.motor_pos = mot_pos_rad;
+        mot_status_msg.motor_pos_rad_raw = wrap_PI(mot_pos_rad);
+        mot_status_msg.motor_pos_rad = wrap_PI(mot_pos_rad - axis_offset.get());
         mot_status.broadcast(mot_status_msg);
-        chThdSleepMilliseconds(100);
+        chThdSleepMilliseconds(50);
         wdt.reset();
     }
 }
