@@ -53,7 +53,7 @@ void init(os::bootloader::Bootloader& bl,
         hw.minor = 0;
 #elif HAL_BRD_VERSION == 2
         hw.major = 2;
-        hm.minor = 0;
+        hw.minor = 0;
 #else
 #error "HAL_BRD_VERSION must be defined"
 #endif

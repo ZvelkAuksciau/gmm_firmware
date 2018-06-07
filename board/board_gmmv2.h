@@ -125,7 +125,7 @@
  * PB6 - Push Pull output 2MHz STATUS_LED_RED
  * PB7 - Push Pull output 2MHz STATUS_LED_GREEN
  */
-#define VAL_GPIOBCRL            0x228BB88B      /*  PB7...PB0 */
+#define VAL_GPIOBCRL            0x22B8B88B      /*  PB7...PB0 */
 #define VAL_GPIOBCRH            0x88888888      /* PB15...PB8 */
 #define VAL_GPIOBODR            0xFFFFFF3F
 

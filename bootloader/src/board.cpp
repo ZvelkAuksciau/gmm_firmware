@@ -90,7 +90,7 @@ void setCANLed(unsigned iface_index, bool state)
     {
     case 0:
     {
-        palWritePad(GPIO_PORT_LED_CAN1, GPIO_PIN_LED_CAN1, state);
+        palWritePad(PORT_LED_GREEN, GPIO_LED_GREEN, state);
         break;
     }
     default:
@@ -102,7 +102,7 @@ void setCANLed(unsigned iface_index, bool state)
 
 void setStatusLed(bool state)
 {
-    palWritePad(GPIO_PORT_LED_STATUS, GPIO_PIN_LED_STATUS, state);
+    palWritePad(PORT_LED_RED, GPIO_LED_RED, state);
 }
 
 void restart()
@@ -207,6 +207,7 @@ void __early_init(void)
 
 void boardInit(void)
 {
+#if HAL_BRD_VERSION == 1
     uint32_t mapr = AFIO->MAPR;
     mapr &= ~AFIO_MAPR_SWJ_CFG; // these bits are write-only
 
@@ -214,10 +215,7 @@ void boardInit(void)
     mapr |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
 
     AFIO->MAPR = mapr | AFIO_MAPR_CAN_REMAP_REMAP2;
-
-//  AFIO->MAPR |= AFIO_MAPR_CAN_REMAP_REMAP2; //CAN1 PB8 and PB9
-  //AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_0; // configure PB4 pin to be used as PWM output instead of JTAG
-  AFIO->MAPR |= AFIO_MAPR_TIM3_REMAP_PARTIALREMAP; // configure alternate mode for PWM
+    AFIO->MAPR |= AFIO_MAPR_TIM3_REMAP_PARTIALREMAP; // configure alternate mode for PWM
 
     /*
      * Enabling the CAN controllers, then configuring GPIO functions for CAN_TX.
@@ -229,9 +227,11 @@ void boardInit(void)
      */
     RCC->APB1ENR |= RCC_APB1ENR_CAN1EN;
     palSetPadMode(GPIOB, 9, PAL_MODE_STM32_ALTERNATE_PUSHPULL);
-    // Enabling CAN2 too, in order to avoid bus disruptions
-    //RCC->APB1ENR |= RCC_APB1ENR_CAN2EN;
-    //palSetPadMode(GPIOB, 13, PAL_MODE_STM32_ALTERNATE_PUSHPULL);
+#elif HAL_BRD_VERSION == 2
+    AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_1; // configure PB3 and PB4 pin to be used as SPI instead of JTAG
+    AFIO->MAPR |= AFIO_MAPR_SPI1_REMAP;
+#endif
+
 }
 
 }

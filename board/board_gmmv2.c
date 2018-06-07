@@ -61,5 +61,6 @@ bool mmc_lld_is_write_protected(MMCDriver *mmcp) {
  * Board-specific initialization code.
  */
 void boardInit(void) {
-    AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_0; // configure PB4 pin to be used as SPI instead of JTAG
+    AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_1; // configure PB3 and PB4 pin to be used as SPI instead of JTAG
+    AFIO->MAPR |= AFIO_MAPR_SPI1_REMAP;
 }
