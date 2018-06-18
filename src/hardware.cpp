@@ -12,6 +12,8 @@ namespace Hardware {
 
     #define HALF_POWER 750
 
+    os::config::Param<float> max_motor_power("mot.max_power", 0.0f, 1.0f, 0.5f);
+
     static const PWMConfig pwm_cfg = {
        72000000,                         // 72 MHz PWM clock frequency
        1500,                             // 24 kHz PWM frequency
@@ -42,16 +44,22 @@ namespace Hardware {
     }
 
     void setPwmCommand(float cmd, float set_power) {
-      float power = HALF_POWER * set_power;
-      if(set_power >= 0.0f) {
-        pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN3, (HALF_POWER + power * sinf(cmd)));
-        pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN2, (HALF_POWER + power * sinf(cmd - 2.094)));
-        pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN1, (HALF_POWER + power * sinf(cmd + 2.094)));
-      } else {
-        pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN2, (HALF_POWER - power * sinf(cmd)));
-        pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN3, (HALF_POWER - power * sinf(cmd - 2.094)));
-        pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN1, (HALF_POWER - power * sinf(cmd + 2.094)));
-      }
+        //Limit max power to motor
+        if(set_power >= max_motor_power.get())
+            set_power = max_motor_power.get();
+        else if(set_power < -max_motor_power.get())
+            set_power = -max_motor_power.get();
+
+        float power = HALF_POWER * set_power;
+        if(set_power >= 0.0f) {
+            pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN3, (HALF_POWER + power * sinf(cmd)));
+            pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN2, (HALF_POWER + power * sinf(cmd - 2.094)));
+            pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN1, (HALF_POWER + power * sinf(cmd + 2.094)));
+        } else {
+            pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN2, (HALF_POWER - power * sinf(cmd)));
+            pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN3, (HALF_POWER - power * sinf(cmd - 2.094)));
+            pwmEnableChannel(&PWMD3, PWM_CHANNEL_IN1, (HALF_POWER - power * sinf(cmd + 2.094)));
+        }
     }
 
     void enablePWMOutput() {
