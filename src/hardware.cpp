@@ -12,7 +12,7 @@ namespace Hardware {
 
     #define HALF_POWER 750
 
-    os::config::Param<float> max_motor_power("mot.max_power", 0.0f, 1.0f, 0.5f);
+    os::config::Param<float> max_motor_power("mot.max_power", 0.5f, 0.0f, 1.0f);
 
     static const PWMConfig pwm_cfg = {
        72000000,                         // 72 MHz PWM clock frequency
