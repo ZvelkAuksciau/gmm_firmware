@@ -7,6 +7,8 @@
 
 namespace Hardware {
 
+#define HARDWARE_ENC_PRESENT       0x01
+
     /*
      * SPI configuration (9MHz, CPHA=1, CPOL=0, MSb first).
      */
@@ -27,6 +29,8 @@ namespace Hardware {
     void setPwmCommand(float cmd, float set_power);
     void enablePWMOutput();
     void disablePWMOutput();
+
+    extern uint8_t g_board_status;
 
     os::watchdog::Timer init();
 }

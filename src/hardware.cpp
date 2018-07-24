@@ -13,6 +13,7 @@ namespace Hardware {
     #define HALF_POWER 750
 
     os::config::Param<float> max_motor_power("mot.max_power", 0.5f, 0.0f, 1.0f);
+    uint8_t g_board_status = 0;
 
     static const PWMConfig pwm_cfg = {
        72000000,                         // 72 MHz PWM clock frequency
@@ -95,7 +96,6 @@ namespace Hardware {
 
         static os::stm32::ConfigStorageBackend config_storage_backend(ConfigStorageAddress, ConfigStorageSize);
         const int config_init_res = os::config::init(&config_storage_backend);
-
 
         return wdt;
     }

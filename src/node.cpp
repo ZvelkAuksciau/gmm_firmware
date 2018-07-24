@@ -227,6 +227,14 @@ namespace Node {
             if (getNode().spin(uavcan::MonotonicDuration::fromMSec(500)) < 0) {
               chSysHalt("UAVCAN spin fail");
             }
+            if((Hardware::g_board_status & HARDWARE_ENC_PRESENT) == 0) {
+                //getNode().setHealthError();
+            } else {
+                //getNode().setHealthOk();
+            }
+            uavcan::NodeStatusProvider::VendorSpecificStatusCode code;
+            code = Hardware::g_board_status;
+            getNode().setVendorSpecificStatusCode(code);
             //kv_pub.broadcast(kv_msg);
         }
     }

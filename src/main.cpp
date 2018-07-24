@@ -27,11 +27,11 @@ static const SerialConfig serialCfg = {
     0
 };
 
-#define BOARD_NORMAL                0x00
-#define BOARD_CALIBRATING_NUM_POLES 0x01
-#define BOARD_CALIBRATING_OFFSET    0x04
+#define MODE_NORMAL                0x00
+#define MODE_CALIBRATING_NUM_POLES 0x01
+#define MODE_CALIBRATING_OFFSET    0x04
 
-uint8_t g_boardStatus = 0;
+uint8_t g_board_mode = 0;
 float cmd_power = 0.0f;
 
 float wrap_2PI(float radian)
@@ -55,8 +55,13 @@ float wrap_PI(float radian)
 static THD_WORKING_AREA(waThread1, 128);
 void Thread1(void) {
     chRegSetThreadName("blinker");
-
+    uint16_t delay = 500;
     while(1) {
+        if(Hardware::g_board_status & HARDWARE_ENC_PRESENT == 0){
+            delay = 100; // Encoder not found
+        } else {
+            delay = 500;
+        }
         Hardware::setStatusLed(true);
         Hardware::setCANLed(false);
         chThdSleepMilliseconds(500);
@@ -114,7 +119,13 @@ void RotoryEncThd(void) {
         mot_pos |= spi_rx_buf[1] & 0x00FF;
         mot_pos_rad = mot_pos * 0.00038349519f;
 
-        if(g_boardStatus == BOARD_NORMAL) {
+        if(Hardware::g_board_status & HARDWARE_ENC_PRESENT == 0) {
+            if(mot_pos > 0 && mot_pos < 16384) {
+                Hardware::g_board_status |= HARDWARE_ENC_PRESENT;
+            }
+        }
+
+        if(g_board_mode == MODE_NORMAL) {
             if(direction.get() != 0) {
                 if(cmd_power > 0.0f) {
                     Hardware::enablePWMOutput();
@@ -130,7 +141,7 @@ void RotoryEncThd(void) {
                     Hardware::disablePWMOutput();
                 }
             } else Hardware::disablePWMOutput();
-        }else if(g_boardStatus & BOARD_CALIBRATING_NUM_POLES) {
+        }else if(g_board_mode & MODE_CALIBRATING_NUM_POLES) {
             switch(calibState){
             case GO_TO_ZERO:
                 cmd_angle = 0.0f;
@@ -166,7 +177,7 @@ void RotoryEncThd(void) {
                 }
                 if(cmd_angle > 3.0f) {
                     if(diff < 100 && diff > -100) {
-                        g_boardStatus &= ~BOARD_CALIBRATING_NUM_POLES;
+                        g_board_mode &= ~MODE_CALIBRATING_NUM_POLES;
                         calibState = GO_TO_ZERO;
                         Hardware::disablePWMOutput();
                         num_poles.set(round(cmd_angle/6.2831f));
@@ -176,7 +187,7 @@ void RotoryEncThd(void) {
                 }
                 break;
             }
-        } else if(g_boardStatus & BOARD_CALIBRATING_OFFSET) {
+        } else if(g_board_mode & MODE_CALIBRATING_OFFSET) {
             switch(calibState){
             case GO_TO_ZERO:
                 Hardware::enablePWMOutput();
@@ -214,7 +225,7 @@ void RotoryEncThd(void) {
                     off_avg = 0.0f;
                     avg_count = 0;
                     calibState = GO_TO_ZERO;
-                    g_boardStatus &= ~BOARD_CALIBRATING_OFFSET;
+                    g_board_mode &= ~MODE_CALIBRATING_OFFSET;
                     os::config::save();
                 }
                 break;
@@ -303,7 +314,7 @@ int main(void) {
             &onFirmwareUpdateRequestedFromUAVCAN);
 
     if(calib_on_next_start.get()) {
-        g_boardStatus |= BOARD_CALIBRATING_OFFSET | BOARD_CALIBRATING_NUM_POLES;
+        g_board_mode |= MODE_CALIBRATING_OFFSET | MODE_CALIBRATING_NUM_POLES;
         calib_on_next_start.setAndSave(false);
     }
     chThdSleepMilliseconds(200);
