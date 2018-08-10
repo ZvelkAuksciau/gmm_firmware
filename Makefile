@@ -258,10 +258,13 @@ FW_VERSION_MAJOR_MINOR_VCS_HASH := $(FW_VERSION_MAJOR).$(FW_VERSION_MINOR).$(GIT
 COMPOUND_IMAGE_FILE := $(PROJECT)-$(HW_VERSION_MAJOR_MINOR)-$(FW_VERSION_MAJOR_MINOR_VCS_HASH).compound.bin
 APPLICATION_IMAGE_FILE := $(PROJECT)-$(HW_VERSION_MAJOR_MINOR)-$(FW_VERSION_MAJOR_MINOR_VCS_HASH).application.bin
 
-BOOTLOADER_IMAGE := ../bootloader/build/gmm_bootloader.bin
+BOOTLOADER_DIR := $(abspath bootloader)
+BOOTLOADER_IMAGE := $(BOOTLOADER_DIR)/build/gmm_bootloader.bin
 
 .PHONY: binaries
 POST_MAKE_ALL_RULE_HOOK:
+	# Build bootloader
+	+cd $(BOOTLOADER_DIR) && make clean && make HAL_VERSION=$(HAL_VERSION) RELEASE=1
 	# Removing previous build outputs that could use a different git hash
 	rm -rf build/*.application.bin build/*.compound.bin
 
