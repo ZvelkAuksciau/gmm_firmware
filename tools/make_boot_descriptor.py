@@ -247,7 +247,7 @@ if __name__ == "__main__":
         parser.error("Invalid usage")
 
     with FirmwareImage(args[0], "rb") as in_image:
-        out_file = '%s-%s-%s.%s.%x.application.bin' % (args[1], args[2],
+        out_file = '%s-%s-%s.%s.%07x.application.bin' % (args[1], args[2],
                                                        in_image.app_descriptor.version_major,
                                                        in_image.app_descriptor.version_minor,
                                                        in_image.app_descriptor.vcs_commit)
