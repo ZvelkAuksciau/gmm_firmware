@@ -52,6 +52,9 @@ float wrap_PI(float radian)
     return res;
 }
 
+/*
+ * Thread blinking LEDS
+ */
 static THD_WORKING_AREA(waThread1, 128);
 void Thread1(void) {
     chRegSetThreadName("blinker");
@@ -79,7 +82,10 @@ os::config::Param<float> axis_offset("mot.enc_off", 0.0f, -M_PI, M_PI); //Axis o
 os::config::Param<bool> calib_on_next_start("mot.calib", false);
 
 float mot_pos_rad = 0.0f;
-
+/*
+ * Thread responsible for reading motor position, calculating new pwm values
+ * based on encoder positions. Auto calibration is also performed in this thread
+ */
 //Running at 5khz
 static THD_WORKING_AREA(waRotoryEncThd, 256);
 void RotoryEncThd(void) {
@@ -115,9 +121,9 @@ void RotoryEncThd(void) {
         spiUnselect(&SPID1);
 
         spiReleaseBus(&SPID1);
-        mot_pos = spi_rx_buf[0] << 8 & 0x3F00;
+        mot_pos = spi_rx_buf[0] << 8 & 0x3F00; //Raw encoder reading
         mot_pos |= spi_rx_buf[1] & 0x00FF;
-        mot_pos_rad = mot_pos * 0.00038349519f;
+        mot_pos_rad = mot_pos * 0.00038349519f; //Constant converts raw 14bit reading to angle in rad
 
         if(Hardware::g_board_status & HARDWARE_ENC_PRESENT == 0) {
             if(mot_pos > 0 && mot_pos < 16384) {
@@ -125,6 +131,7 @@ void RotoryEncThd(void) {
             }
         }
 
+        //normal operation.
         if(g_board_mode == MODE_NORMAL) {
             if(direction.get() != 0) {
                 if(cmd_power > 0.0f) {
@@ -141,9 +148,9 @@ void RotoryEncThd(void) {
                     Hardware::disablePWMOutput();
                 }
             } else Hardware::disablePWMOutput();
-        }else if(g_board_mode & MODE_CALIBRATING_NUM_POLES) {
+        }else if(g_board_mode & MODE_CALIBRATING_NUM_POLES) { //Calibrating number of poles
             switch(calibState){
-            case GO_TO_ZERO:
+            case GO_TO_ZERO: //Go to zero phase
                 cmd_angle = 0.0f;
                 avg_count = 0;
                 avg_calc = 0;
@@ -152,7 +159,7 @@ void RotoryEncThd(void) {
                 chThdSleepMilliseconds(1000);
                 calibState = READ_ZERO_POS;
                 break;
-            case READ_ZERO_POS:
+            case READ_ZERO_POS: //Read zero phase position to determine when motor will complete full revolution
                 avg_calc += mot_pos;
                 avg_count++;
                 if(avg_count == 100) {
@@ -160,27 +167,27 @@ void RotoryEncThd(void) {
                     calibState = DO_ONE_ROTATION;
                 }
                 break;
-            case DO_ONE_ROTATION:
+            case DO_ONE_ROTATION: //Perform one rotation (mechanical 2pi angle) in small steps
                 cmd_angle += 0.005f;
                 Hardware::setPwmCommand(cmd_angle, CALIBRATION_POWER);
-                int32_t diff = mot_pos - avg_calc;
+                int32_t diff = mot_pos - avg_calc; //Possible problem when calibrating direction
                 if(cmd_angle > 1.0f && !dir_calibrated) {
-                    if(diff > 0) {
+                    if(diff > 0) { //if rotating in positive direction
                         //Node::publishKeyValue("mot_dir", 1.0f);
                         direction.set(1);
                         dir_calibrated = true;
-                    } else if(diff < 0) {
+                    } else if(diff < 0) { //if rotating in negative direction
                         //Node::publishKeyValue("mot_dir", -1.0f);
                         direction.set(-1);
                         dir_calibrated = true;
                     }
                 }
                 if(cmd_angle > 3.0f) {
-                    if(diff < 100 && diff > -100) {
+                    if(diff < 100 && diff > -100) { //If we are really close to one full rotation
                         g_board_mode &= ~MODE_CALIBRATING_NUM_POLES;
                         calibState = GO_TO_ZERO;
                         Hardware::disablePWMOutput();
-                        num_poles.set(round(cmd_angle/6.2831f));
+                        num_poles.set(round(cmd_angle/6.2831f)); //Proper rounding is important
                         //Node::publishKeyValue("mot_poles", num_poles.get());
                         os::config::save();
                     }
@@ -309,10 +316,12 @@ int main(void) {
     const auto& app_shared = app_shared_read_result.first;
     const auto app_shared_available = app_shared_read_result.second;
 
+    //Initialize CAN BUS
     Node::init(1000000, 11, fw_version.major, fw_version.minor,
             fw_version.vcs_commit, fw_version.image_crc64we,
             &onFirmwareUpdateRequestedFromUAVCAN);
 
+    //Check if we should launch calibration sequence
     if(calib_on_next_start.get()) {
         g_board_mode |= MODE_CALIBRATING_OFFSET | MODE_CALIBRATING_NUM_POLES;
         calib_on_next_start.setAndSave(false);
@@ -321,6 +330,7 @@ int main(void) {
 
     uavcan::Subscriber<kmti::gimbal::MotorCommand> mot_sub(Node::getNode());
 
+    //Motor message subscriber
     const int mot_sub_start_res =
             mot_sub.start(
                     [&](const uavcan::ReceivedDataStructure<kmti::gimbal::MotorCommand>& msg)
@@ -329,6 +339,7 @@ int main(void) {
                         lastCommandTime = chVTGetSystemTime();
                     });
 
+    //Motor status publisher
     uavcan::Publisher<kmti::gimbal::MotorStatus> mot_status(Node::getNode());
     mot_status.init();
 
@@ -343,6 +354,9 @@ int main(void) {
     chThdCreateStatic(waRotoryEncThd, sizeof(waRotoryEncThd), NORMALPRIO + 10,
             (tfunc_t) RotoryEncThd, NULL);
 
+    /*
+     * Main thread is used to publish motor status message
+     */
     while (1) {
         if (lastCommandTime != 0
                 && lastCommandTime + MS2ST(200) < chVTGetSystemTime()) {
