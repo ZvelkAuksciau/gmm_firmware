@@ -80,6 +80,7 @@ os::config::Param<int8_t> direction("mot.dir", 1, -1, 1);
 os::config::Param<uint8_t> axis_id("mot.axis_id", 0, 0, 2); //0 - Pitch; 1 - Roll; 2 - Yaw
 os::config::Param<float> axis_offset("mot.enc_off", 0.0f, -M_PI, M_PI); //Axis offset used for figuring out gimbal frame position
 os::config::Param<bool> calib_on_next_start("mot.calib", false);
+os::config::Param<bool> rev_enc("enc.rev", false); //Total hack should be fixed
 
 float mot_pos_rad = 0.0f;
 /*
@@ -366,7 +367,11 @@ int main(void) {
         }
         mot_status_msg.axis_id = axis_id.get();
         mot_status_msg.motor_pos_rad_raw = wrap_PI(mot_pos_rad);
-        mot_status_msg.motor_pos_rad = wrap_PI(mot_pos_rad - axis_offset.get());
+        if(rev_enc.get()) {
+            mot_status_msg.motor_pos_rad = -1.0f * wrap_PI(mot_pos_rad - axis_offset.get());
+        } else {
+            mot_status_msg.motor_pos_rad = wrap_PI(mot_pos_rad - axis_offset.get());
+        }
         mot_status.broadcast(mot_status_msg);
         chThdSleepMilliseconds(50);
         wdt.reset();
